@@ -1,10 +1,12 @@
-package com.ruoyi.assistant;
+package com.ruoyi.service;
 
-import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
-
 public interface AiAssistantService {
-    public Flux<String> chat(List<ChatMessage> messages);
+    @SystemMessage("{{systemPrompt}}")
+    Flux<String> chat(@MemoryId long chatId, @UserMessage String userMessage,@V("systemPrompt") String systemPrompt);
 }

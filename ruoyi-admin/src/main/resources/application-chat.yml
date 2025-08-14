@@ -93,4 +93,5 @@ vectorstore:
   qdrant:
     host: localhost
     port: 6334
+    vector-size: 512
 

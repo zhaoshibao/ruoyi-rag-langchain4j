@@ -2,7 +2,6 @@ package com.ruoyi.operator;
 
 import cn.hutool.core.util.IdUtil;
 import com.ruoyi.annotation.BeanType;
-import com.ruoyi.assistant.Assistant;
 import com.ruoyi.component.QdrantVectorStoreComponet;
 import com.ruoyi.domain.ChatFileSegment;
 import com.ruoyi.domain.ChatKnowledge;
@@ -10,8 +9,10 @@ import com.ruoyi.domain.ChatProject;
 import com.ruoyi.enums.AiTypeEnum;
 import com.ruoyi.enums.LanguageEnum;
 import com.ruoyi.enums.SystemConstant;
+import com.ruoyi.factory.AiServiceFactory;
 import com.ruoyi.searxng.SearXNGSearchResult;
 import com.ruoyi.searxng.SearXNGService;
+import com.ruoyi.service.AiAssistantService;
 import com.ruoyi.service.IChatFileSegmentService;
 import com.ruoyi.service.Neo4jService;
 import com.ruoyi.service.async.VectorStoreAsyncService;
@@ -82,6 +83,9 @@ public class OpenAiOperator implements AiOperator {
     @Autowired
     private VectorStoreAsyncService vectorStoreAsyncService;
 
+    @Autowired
+    private AiServiceFactory aiServiceFactory;
+
 
 
 
@@ -100,62 +104,67 @@ public class OpenAiOperator implements AiOperator {
         msg.setId(IdUtil.getSnowflake().nextId());
         this.mongoTemplate.insert(msg, MongoUtil.getMessageCollection(chatId));
 
+        AiAssistantService assistant = aiServiceFactory.createAiService(chatId,chatProject,AiTypeEnum.OPENAI);
+        Flux<String> flux = assistant.chat(chatId,queryVo.getMsg(),chatProject.getSystemPrompt()
+                +"\n"+ LanguageEnum.getMsg(queryVo.getLanguage()) );
+        return flux;
 
-        String baseUrl = chatProject.getBaseUrl();
-        String apiKey = chatProject.getApiKey();
-        String model = chatProject.getModel();
+
+//        String baseUrl = chatProject.getBaseUrl();
+//        String apiKey = chatProject.getApiKey();
+//        String model = chatProject.getModel();
         //String embeddingModel = chatProject.getEmbeddingModel();
-        EmbeddingModel localEmbeddingModel = EmbeddingModelUtil.getLocalEmbeddingModel();
-        Embedding queryEmbedding = localEmbeddingModel.embed(queryVo.getMsg()).content();
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore(baseUrl, apiKey,"");
-        EmbeddingSearchResult<TextSegment> searchResult = openAiQdrantVectorStore.search(
-                EmbeddingSearchRequest.builder()
-                        .queryEmbedding(queryEmbedding)
-                        .maxResults(SystemConstant.TOPK) // 取前10个
-                        .build()
-        );
-        List<EmbeddingMatch<TextSegment>> embeddingMatchList = searchResult.matches();
-        List<ChatMessage> msgList;
+//        EmbeddingModel localEmbeddingModel = EmbeddingModelUtil.getLocalEmbeddingModel();
+//        Embedding queryEmbedding = localEmbeddingModel.embed(queryVo.getMsg()).content();
+//        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
+//        EmbeddingSearchResult<TextSegment> searchResult = openAiQdrantVectorStore.search(
+//                EmbeddingSearchRequest.builder()
+//                        .queryEmbedding(queryEmbedding)
+//                        .maxResults(SystemConstant.TOPK) // 取前10个
+//                        .build()
+//        );
+//        List<EmbeddingMatch<TextSegment>> embeddingMatchList = searchResult.matches();
+//        List<ChatMessage> msgList;
         // 把本地知识库的内容作为系统提示放入
-        List<String> knoledgeIds = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(embeddingMatchList)) {
-            msgList = embeddingMatchList.stream().map(result -> {
-                        String text = result.embedded().text();
-                        return new SystemMessage(text);
-            }
-            ).collect(Collectors.toList());
-        } else {
-            msgList = new ArrayList<>();
-        }
+//        List<String> knoledgeIds = new ArrayList<>();
+//        if (!CollectionUtils.isEmpty(embeddingMatchList)) {
+//            msgList = embeddingMatchList.stream().map(result -> {
+//                        String text = result.embedded().text();
+//                        return new SystemMessage(text);
+//            }
+//            ).collect(Collectors.toList());
+//        } else {
+//            msgList = new ArrayList<>();
+//        }
 
         // 添加 Neo4j 图数据库查询结果
-        String graphContext = neo4jService.getAllRelationshipsContext(queryVo.getProjectId(), knoledgeIds);
-        if (graphContext != null && !graphContext.isEmpty() && !graphContext.startsWith("未指定") && !graphContext.startsWith("指定的")) {
-            msgList.add(new SystemMessage("以下是从图数据库中查询到的相关信息：\n" + graphContext));
-        }
+//        String graphContext = neo4jService.getAllRelationshipsContext(queryVo.getProjectId(), knoledgeIds);
+//        if (graphContext != null && !graphContext.isEmpty() && !graphContext.startsWith("未指定") && !graphContext.startsWith("指定的")) {
+//            msgList.add(new SystemMessage("以下是从图数据库中查询到的相关信息：\n" + graphContext));
+//        }
         //是否开启联网搜索
-        Boolean useWebSearch = queryVo.getUseWebSearch();
-
-        if (useWebSearch) {
-            SearXNGSearchResult search = searXNGService.search(queryVo.getMsg());
-            List<SearXNGSearchResult.Result> searchResultList = search.getResults();
-            if (!CollectionUtils.isEmpty(searchResultList)) {
-                searchResultList.stream().forEach(result -> {
-                    msgList.add(new SystemMessage(result.getTitle()));
-                    msgList.add(new SystemMessage(result.getContent()));
-                });
-            }
-
-        }
+//        Boolean useWebSearch = queryVo.getUseWebSearch();
+//
+//        if (useWebSearch) {
+//            SearXNGSearchResult search = searXNGService.search(queryVo.getMsg());
+//            List<SearXNGSearchResult.Result> searchResultList = search.getResults();
+//            if (!CollectionUtils.isEmpty(searchResultList)) {
+//                searchResultList.stream().forEach(result -> {
+//                    msgList.add(new SystemMessage(result.getTitle()));
+//                    msgList.add(new SystemMessage(result.getContent()));
+//                });
+//            }
+//
+//        }
         // 中英文切换
-        msgList.add(new SystemMessage(LanguageEnum.getMsg(queryVo.getLanguage())));
-        if (StringUtils.hasText(chatProject.getSystemPrompt())) {
-            msgList.add(new SystemMessage(chatProject.getSystemPrompt()));
-        }
+//        msgList.add(new SystemMessage(LanguageEnum.getMsg(queryVo.getLanguage())));
+//        if (StringUtils.hasText(chatProject.getSystemPrompt())) {
+//            msgList.add(new SystemMessage(chatProject.getSystemPrompt()));
+//        }
 
 
         // 加入当前用户的提问
-        msgList.add(new UserMessage(queryVo.getMsg()));
+//        msgList.add(new UserMessage(queryVo.getMsg()));
 
 
 //        ChatRequest chatRequest = ChatRequest.builder()
@@ -163,9 +172,11 @@ public class OpenAiOperator implements AiOperator {
 //                .parameters(OpenAiChatRequestParameters.builder()
 //                        .build())
 //                .build();
-      OpenAiStreamingChatModel openAiStreamingChatModel = ChatModelUtil.getOpenAiChatModel(baseUrl, apiKey, model);
-      Assistant assistant = AiServices.create(Assistant.class, openAiStreamingChatModel);
-      Flux<String> flux = assistant.chat(msgList);
+
+
+//      OpenAiStreamingChatModel openAiStreamingChatModel = ChatModelUtil.getOpenAiChatModel(baseUrl, apiKey, model);
+//      AiAssistantService assistant = AiServices.create(AiAssistantService.class, openAiStreamingChatModel);
+//      Flux<String> flux = assistant.chat(msgList);
 
 
 
@@ -192,7 +203,6 @@ public class OpenAiOperator implements AiOperator {
         //     此处获取的信息和最终返回的信息 是两个结果
         //     System.out.println(StringUtils.join(list, ""));
         // });
-        return flux;
     }
 
 
@@ -293,7 +303,7 @@ public class OpenAiOperator implements AiOperator {
                 String baseUrl = chatProject.getBaseUrl();
                 String apiKey = chatProject.getApiKey();
                 String embeddingModel = chatProject.getEmbeddingModel();
-                EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore(baseUrl, apiKey, embeddingModel);
+                EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
                 //异步执行
                 this.vectorStoreAsyncService.addVectorStore(knowledgeId,openAiQdrantVectorStore, textSegmentList);
 
@@ -416,31 +426,18 @@ public class OpenAiOperator implements AiOperator {
         return ocrResults;
     }
 
-    //    @Override
-//    public Boolean remove(String docId) {
-//        return this.openaiQdrantVectorStore.delete(List.of(docId)).get();
-//    }
     @Override
     public void remove(ChatProject chatProject,String docId) throws Exception {
-        String baseUrl = chatProject.getBaseUrl();
-        String apiKey = chatProject.getApiKey();
-        String embeddingModel = chatProject.getEmbeddingModel();
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore(baseUrl, apiKey, embeddingModel);
+        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
         openAiQdrantVectorStore.remove(docId);
 
     }
 
     @Override
     public void removeByknowledgeId(ChatProject chatProject, String knowledgeId) throws Exception {
-        String baseUrl = chatProject.getBaseUrl();
-        String apiKey = chatProject.getApiKey();
-        String embeddingModel = chatProject.getEmbeddingModel();
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore(baseUrl,apiKey,embeddingModel);
+        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
         //异步执行
         vectorStoreAsyncService.removeByknowledgeId(openAiQdrantVectorStore,knowledgeId);
-//        ollamaQdrantVectorStore.delete(
-//                new FilterExpressionBuilder().eq("knowledgeId", knowledgeId).build()
-//        );
     }
 
 }

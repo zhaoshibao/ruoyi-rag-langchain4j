@@ -9,38 +9,31 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * 工具类，用于获取嵌入式模型
+ * 单例模式的工具类，用于获取嵌入式模型
  */
 @Slf4j
 public class EmbeddingModelUtil {
+    private static EmbeddingModel embeddingModel;
+
+    // 私有构造方法，防止实例化
+    private EmbeddingModelUtil() {
+        throw new AssertionError("禁止实例化工具类");
+    }
+
+
     /**
      * 获取本地嵌入式模型
      * @return
      * @throws Exception
      */
-//   public static TransformersEmbeddingModel getLocalEmbeddingModel() throws Exception {
-//       TransformersEmbeddingModel embeddingModel = new TransformersEmbeddingModel();
-//       // 设置tokenizer文件路径
-//       embeddingModel.setTokenizerResource("classpath:/onnx/bge-small-zh-v1.5/tokenizer.json");
-//       // 设置Onnx模型文件路径
-//       embeddingModel.setModelResource("classpath:/onnx/bge-small-zh-v1.5/model.onnx");
-//       // 缓存位置
-//       embeddingModel.setResourceCacheDirectory("/tmp/onnx-cache");
-//       // 自动填充
-//       embeddingModel.setTokenizerOptions(Map.of("padding", "true"));
-//       // 模型输出层的名称，默认是 last_hidden_state, 需要根据所选模型设置
-//       embeddingModel.setModelOutputName("token_embeddings");
-//       embeddingModel.afterPropertiesSet();
-//       return embeddingModel;
-//   }
-
-       public static EmbeddingModel getLocalEmbeddingModel() throws Exception {
-
-           Path pathToModel = convertClasspathToPath("onnx/bge-small-zh-v1.5/model.onnx");
-           Path pathToTokenizer = convertClasspathToPath("onnx/bge-small-zh-v1.5/tokenizer.json");
-           PoolingMode poolingMode = PoolingMode.MEAN;
-           EmbeddingModel embeddingModel = new OnnxEmbeddingModel(pathToModel,pathToTokenizer,poolingMode);
-           return embeddingModel;
+    public static synchronized EmbeddingModel getLocalEmbeddingModel() throws Exception {
+        if (embeddingModel == null) {
+            Path pathToModel = convertClasspathToPath("onnx/bge-small-zh-v1.5/model.onnx");
+            Path pathToTokenizer = convertClasspathToPath("onnx/bge-small-zh-v1.5/tokenizer.json");
+            PoolingMode poolingMode = PoolingMode.MEAN;
+            embeddingModel = new OnnxEmbeddingModel(pathToModel, pathToTokenizer, poolingMode);
+        }
+        return embeddingModel;
    }
 
     private static Path convertClasspathToPath(String classpath) throws Exception {
