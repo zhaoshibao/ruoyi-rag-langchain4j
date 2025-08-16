@@ -192,6 +192,11 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-onnx-scoring</artifactId>
+            <version>1.3.0-beta9</version>
+        </dependency>
 
 
         <dependency>

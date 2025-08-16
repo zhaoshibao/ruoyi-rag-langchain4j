@@ -6,10 +6,13 @@ import com.ruoyi.enums.AiTypeEnum;
 import com.ruoyi.service.AiAssistantService;
 import com.ruoyi.utils.ChatModelUtil;
 import com.ruoyi.utils.EmbeddingModelUtil;
+import com.ruoyi.utils.ScoringModelUtil;
 import dev.langchain4j.community.web.search.searxng.SearXNGWebSearchEngine;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
+import dev.langchain4j.rag.content.aggregator.ContentAggregator;
+import dev.langchain4j.rag.content.aggregator.ReRankingContentAggregator;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.rag.content.retriever.WebSearchContentRetriever;
@@ -68,8 +71,8 @@ public class AiServiceFactory {
                 .embeddingModel(EmbeddingModelUtil.getLocalEmbeddingModel())
                 // 指定要使用的嵌入存储
                 .embeddingStore(embeddingStore)
-                // 设置最大检索结果数量，这里表示最多返回 1 条匹配结果
-                .maxResults(1)
+                // 设置最大检索结果数量，这里表示最多返回 5 条匹配结果
+                .maxResults(5)
                 // 设置最小得分阈值，只有得分大于等于 0.8 的结果才会被返回
                 .minScore(0.8)
                 // 构建最终的 EmbeddingStoreContentRetriever 实例
@@ -88,6 +91,14 @@ public class AiServiceFactory {
                 .maxResults(searxngMaxResults)
                 .build();
 
+
+        ContentAggregator scoringContentAggregator = ReRankingContentAggregator.builder()
+                .scoringModel(ScoringModelUtil.getLocalScoringModel())
+                .minScore(0.8)
+                .maxResults(3)
+                // we want to present the LLM with only the truly relevant segments for the user's query
+                .build();
+
         List<ContentRetriever> contentRetrieverList = new ArrayList<>();
         contentRetrieverList.add(embeddingStoreContentRetriever);
         if (chatProject.getUseWebSearch()) {
@@ -99,6 +110,7 @@ public class AiServiceFactory {
 
         RetrievalAugmentor retrievalAugmentor = DefaultRetrievalAugmentor.builder()
                 .queryRouter(queryRouter)
+                .contentAggregator(scoringContentAggregator)
                 .build();
         return switch (aiTypeEnum) {
             // 基于 OpenAI 模型
