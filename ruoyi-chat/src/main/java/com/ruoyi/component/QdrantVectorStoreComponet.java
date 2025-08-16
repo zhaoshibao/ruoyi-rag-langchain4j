@@ -1,5 +1,6 @@
 package com.ruoyi.component;
 
+import com.ruoyi.enums.AiTypeEnum;
 import com.ruoyi.enums.SystemConstant;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.qdrant.QdrantEmbeddingStore;
@@ -48,10 +49,23 @@ public class QdrantVectorStoreComponet {
         }
     }
 
+    public EmbeddingStore getEmbeddingStoreByAiType(AiTypeEnum aiTypeEnum) {
+        switch (aiTypeEnum) {
+            case OLLAMA:
+                return getOllamaQdrantVectorStore();
+            case OPENAI:
+                return getOpenAiQdrantVectorStore();
+            case ZHIPUAI:
+                return getZhiPuAiQdrantVectorStore();
+            default:
+                throw new IllegalArgumentException("不支持的向量存储类型: " + aiTypeEnum);
+        }
+    }
+
     /**
      * 获取Ollama Qdrant向量存储组件
      */
-    public EmbeddingStore getOllamaQdrantVectorStore () {
+    private EmbeddingStore getOllamaQdrantVectorStore () {
         return createEmbeddingStore(SystemConstant.OLLAMA_QDRANT);
     }
 
@@ -60,7 +74,7 @@ public class QdrantVectorStoreComponet {
      * @return
      * @throws Exception
      */
-    public EmbeddingStore getOpenAiQdrantVectorStore() {
+    private EmbeddingStore getOpenAiQdrantVectorStore() {
         return createEmbeddingStore(SystemConstant.OPENAI_QDRANT);
     }
 
@@ -69,7 +83,7 @@ public class QdrantVectorStoreComponet {
     /**
      * 获取智普AI 向量存储组件
      */
-    public EmbeddingStore getZhiPuAiQdrantVectorStore () {
+    private EmbeddingStore getZhiPuAiQdrantVectorStore () {
         return createEmbeddingStore(SystemConstant.ZHIPUAI_QDRANT);
     }
 

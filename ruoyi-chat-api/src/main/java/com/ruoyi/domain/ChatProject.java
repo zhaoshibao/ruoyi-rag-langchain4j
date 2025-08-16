@@ -51,8 +51,15 @@ public class ChatProject extends BaseEntity {
 
 
 
+
+
     /** 用户Id */
     private Long userId;
+
+
+
+    /** 是否开启网络搜索 */
+    Boolean useWebSearch;
 
     public String getBaseUrl() {
         return baseUrl;
@@ -159,6 +166,14 @@ public class ChatProject extends BaseEntity {
     }
 
 
+    public Boolean getUseWebSearch() {
+        return useWebSearch;
+    }
+
+    public void setUseWebSearch(Boolean useWebSearch) {
+        this.useWebSearch = useWebSearch;
+    }
+
     @Override
     public String toString() {
         return "ChatProject{" +
@@ -172,8 +187,7 @@ public class ChatProject extends BaseEntity {
                 ", systemPrompt='" + systemPrompt + '\'' +
                 ", isPdfAnalysis=" + isPdfAnalysis +
                 ", userId=" + userId +
+                ", useWebSearch=" + useWebSearch +
                 '}';
     }
-
-
 }

@@ -8,16 +8,12 @@ import com.ruoyi.domain.ChatKnowledge;
 import com.ruoyi.domain.ChatProject;
 import com.ruoyi.enums.AiTypeEnum;
 import com.ruoyi.enums.LanguageEnum;
-import com.ruoyi.enums.SystemConstant;
 import com.ruoyi.factory.AiServiceFactory;
-import com.ruoyi.searxng.SearXNGSearchResult;
 import com.ruoyi.searxng.SearXNGService;
 import com.ruoyi.service.AiAssistantService;
 import com.ruoyi.service.IChatFileSegmentService;
 import com.ruoyi.service.Neo4jService;
 import com.ruoyi.service.async.VectorStoreAsyncService;
-import com.ruoyi.utils.ChatModelUtil;
-import com.ruoyi.utils.EmbeddingModelUtil;
 import com.ruoyi.utils.MongoUtil;
 import com.ruoyi.vo.QueryVo;
 import dev.langchain4j.data.document.Document;
@@ -26,17 +22,7 @@ import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
 import dev.langchain4j.data.document.splitter.DocumentByParagraphSplitter;
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.store.embedding.EmbeddingMatch;
-import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
-import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.Tesseract;
@@ -70,8 +56,6 @@ public class OpenAiOperator implements AiOperator {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    @Autowired
-    private SearXNGService searXNGService;
 
     @Autowired
     private Neo4jService neo4jService;
@@ -86,12 +70,6 @@ public class OpenAiOperator implements AiOperator {
     @Autowired
     private AiServiceFactory aiServiceFactory;
 
-
-
-
-
-
-
     @Override
     public Flux<String> chatStream(ChatProject chatProject, QueryVo queryVo) throws Exception {
         // 把问题记录到mongodb
@@ -103,106 +81,12 @@ public class OpenAiOperator implements AiOperator {
         msg.setCreateTime(new Date());
         msg.setId(IdUtil.getSnowflake().nextId());
         this.mongoTemplate.insert(msg, MongoUtil.getMessageCollection(chatId));
+        chatProject.setUseWebSearch(queryVo.getUseWebSearch());
 
         AiAssistantService assistant = aiServiceFactory.createAiService(chatId,chatProject,AiTypeEnum.OPENAI);
-        Flux<String> flux = assistant.chat(chatId,queryVo.getMsg(),chatProject.getSystemPrompt()
+        return  assistant.chat(chatId,queryVo.getMsg(),chatProject.getSystemPrompt()
                 +"\n"+ LanguageEnum.getMsg(queryVo.getLanguage()) );
-        return flux;
 
-
-//        String baseUrl = chatProject.getBaseUrl();
-//        String apiKey = chatProject.getApiKey();
-//        String model = chatProject.getModel();
-        //String embeddingModel = chatProject.getEmbeddingModel();
-//        EmbeddingModel localEmbeddingModel = EmbeddingModelUtil.getLocalEmbeddingModel();
-//        Embedding queryEmbedding = localEmbeddingModel.embed(queryVo.getMsg()).content();
-//        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
-//        EmbeddingSearchResult<TextSegment> searchResult = openAiQdrantVectorStore.search(
-//                EmbeddingSearchRequest.builder()
-//                        .queryEmbedding(queryEmbedding)
-//                        .maxResults(SystemConstant.TOPK) // 取前10个
-//                        .build()
-//        );
-//        List<EmbeddingMatch<TextSegment>> embeddingMatchList = searchResult.matches();
-//        List<ChatMessage> msgList;
-        // 把本地知识库的内容作为系统提示放入
-//        List<String> knoledgeIds = new ArrayList<>();
-//        if (!CollectionUtils.isEmpty(embeddingMatchList)) {
-//            msgList = embeddingMatchList.stream().map(result -> {
-//                        String text = result.embedded().text();
-//                        return new SystemMessage(text);
-//            }
-//            ).collect(Collectors.toList());
-//        } else {
-//            msgList = new ArrayList<>();
-//        }
-
-        // 添加 Neo4j 图数据库查询结果
-//        String graphContext = neo4jService.getAllRelationshipsContext(queryVo.getProjectId(), knoledgeIds);
-//        if (graphContext != null && !graphContext.isEmpty() && !graphContext.startsWith("未指定") && !graphContext.startsWith("指定的")) {
-//            msgList.add(new SystemMessage("以下是从图数据库中查询到的相关信息：\n" + graphContext));
-//        }
-        //是否开启联网搜索
-//        Boolean useWebSearch = queryVo.getUseWebSearch();
-//
-//        if (useWebSearch) {
-//            SearXNGSearchResult search = searXNGService.search(queryVo.getMsg());
-//            List<SearXNGSearchResult.Result> searchResultList = search.getResults();
-//            if (!CollectionUtils.isEmpty(searchResultList)) {
-//                searchResultList.stream().forEach(result -> {
-//                    msgList.add(new SystemMessage(result.getTitle()));
-//                    msgList.add(new SystemMessage(result.getContent()));
-//                });
-//            }
-//
-//        }
-        // 中英文切换
-//        msgList.add(new SystemMessage(LanguageEnum.getMsg(queryVo.getLanguage())));
-//        if (StringUtils.hasText(chatProject.getSystemPrompt())) {
-//            msgList.add(new SystemMessage(chatProject.getSystemPrompt()));
-//        }
-
-
-        // 加入当前用户的提问
-//        msgList.add(new UserMessage(queryVo.getMsg()));
-
-
-//        ChatRequest chatRequest = ChatRequest.builder()
-//                .messages(msgList)
-//                .parameters(OpenAiChatRequestParameters.builder()
-//                        .build())
-//                .build();
-
-
-//      OpenAiStreamingChatModel openAiStreamingChatModel = ChatModelUtil.getOpenAiChatModel(baseUrl, apiKey, model);
-//      AiAssistantService assistant = AiServices.create(AiAssistantService.class, openAiStreamingChatModel);
-//      Flux<String> flux = assistant.chat(msgList);
-
-
-
-
-//        // 提交到大模型获取最终结果
-////        ChatClient chatClient = ChatClient.builder(openAiChatModel)
-////                .defaultToolCallbacks(tools)
-////                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-////                .build();
-//        openAiChatModel.
-//        Flux<ChatResponse> responseFlux =chatClient.prompt(new Prompt(msgList)).stream().chatResponse();
-//
-//        Flux<String> flux = responseFlux.map(response -> {
-//                   String result =  response.getResult() != null
-//                            && response.getResult().getOutput() != null
-//                            && response.getResult().getOutput().getText() != null
-//                            ? response.getResult().getOutput().getText() : "";
-//                    return result;
-//                 }
-//        );
-
-
-        // flux.collectList().subscribe(list -> {
-        //     此处获取的信息和最终返回的信息 是两个结果
-        //     System.out.println(StringUtils.join(list, ""));
-        // });
     }
 
 
@@ -303,7 +187,7 @@ public class OpenAiOperator implements AiOperator {
                 String baseUrl = chatProject.getBaseUrl();
                 String apiKey = chatProject.getApiKey();
                 String embeddingModel = chatProject.getEmbeddingModel();
-                EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
+                EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.OPENAI);
                 //异步执行
                 this.vectorStoreAsyncService.addVectorStore(knowledgeId,openAiQdrantVectorStore, textSegmentList);
 
@@ -428,14 +312,14 @@ public class OpenAiOperator implements AiOperator {
 
     @Override
     public void remove(ChatProject chatProject,String docId) throws Exception {
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
+        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.OPENAI);
         openAiQdrantVectorStore.remove(docId);
 
     }
 
     @Override
     public void removeByknowledgeId(ChatProject chatProject, String knowledgeId) throws Exception {
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
+        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.OPENAI);
         //异步执行
         vectorStoreAsyncService.removeByknowledgeId(openAiQdrantVectorStore,knowledgeId);
     }

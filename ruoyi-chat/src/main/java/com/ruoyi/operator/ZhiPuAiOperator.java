@@ -102,112 +102,10 @@ public class ZhiPuAiOperator implements AiOperator {
         msg.setCreateTime(new Date());
         msg.setId(IdUtil.getSnowflake().nextId());
         this.mongoTemplate.insert(msg, MongoUtil.getMessageCollection(chatId));
+        chatProject.setUseWebSearch(queryVo.getUseWebSearch());
         AiAssistantService assistant = aiServiceFactory.createAiService(chatId,chatProject,AiTypeEnum.ZHIPUAI);
-        Flux<String> flux = assistant.chat(chatId,queryVo.getMsg(),chatProject.getSystemPrompt()
+        return assistant.chat(chatId,queryVo.getMsg(),chatProject.getSystemPrompt()
                 +"\n"+ LanguageEnum.getMsg(queryVo.getLanguage()) );
-        return flux;
-//        String baseUrl = chatProject.getBaseUrl();
-//        String apiKey = chatProject.getApiKey();
-//        String model = chatProject.getModel();
-        //String embeddingModel = chatProject.getEmbeddingModel();
-        //提问，并将问题转成向量数据
-//        EmbeddingModel localEmbeddingModel = EmbeddingModelUtil.getLocalEmbeddingModel();
-//        Embedding queryEmbedding = localEmbeddingModel.embed(queryVo.getMsg()).content();
-//        EmbeddingStore zhiPuAiQdrantVectorStore = qdrantVectorStoreComponet.getZhiPuAiQdrantVectorStore();
-//        EmbeddingSearchResult<TextSegment> searchResult = zhiPuAiQdrantVectorStore.search(
-//                EmbeddingSearchRequest.builder()
-//                        .queryEmbedding(queryEmbedding)
-//                        .minScore(0.8)
-//                        .maxResults(SystemConstant.TOPK) // 取前10个
-//                        .build()
-//        );
-//        List<EmbeddingMatch<TextSegment>> embeddingMatchList = searchResult.matches();
-//        List<ChatMessage> msgList;
-//        // 把本地知识库的内容作为系统提示放入
-//        List<String> knoledgeIds = new ArrayList<>();
-//        if (!CollectionUtils.isEmpty(embeddingMatchList)) {
-//            msgList = embeddingMatchList.stream().map(result -> {
-//                    String text = result.embedded().text();
-//                    return new SystemMessage(text);
-//                }
-//            ).collect(Collectors.toList());
-//        } else {
-//            msgList = new ArrayList<>();
-//        }
-
-        // 添加 Neo4j 图数据库查询结果
-//        String graphContext = neo4jService.getAllRelationshipsContext(queryVo.getProjectId(), knoledgeIds);
-//        if (graphContext != null && !graphContext.isEmpty() && !graphContext.startsWith("未指定") && !graphContext.startsWith("指定的")) {
-//            msgList.add(new SystemMessage("以下是从图数据库中查询到的相关信息：\n" + graphContext));
-//        }
-        //是否开启联网搜索
-//        Boolean useWebSearch = queryVo.getUseWebSearch();
-//
-//        if (useWebSearch) {
-//            SearXNGSearchResult search = searXNGService.search(queryVo.getMsg());
-//            List<SearXNGSearchResult.Result> searchResultList = search.getResults();
-//            if (!CollectionUtils.isEmpty(searchResultList)) {
-//                searchResultList.stream().forEach(result -> {
-//                    msgList.add(new SystemMessage(result.getTitle()));
-//                    msgList.add(new SystemMessage(result.getContent()));
-//                });
-//            }
-//
-//        }
-        // 中英文切换
-        //msgList.add(new SystemMessage(LanguageEnum.getMsg(queryVo.getLanguage())));
-//        if (StringUtils.hasText(chatProject.getSystemPrompt())) {
-//            msgList.add(new SystemMessage(chatProject.getSystemPrompt()));
-//        }
-
-        // 加入当前用户的提问
-//        msgList.add(new UserMessage(queryVo.getMsg()));
-
-//        ChatRequest chatRequest = ChatRequest.builder()
-//                .messages(msgList)
-//                .parameters(OpenAiChatRequestParameters.builder()
-//                        .build())
-//                .build();
-
-
-//        ZhipuAiStreamingChatModel zhipuAiStreamingChatModel = ChatModelUtil.getZhiPuAiChatModel(baseUrl, apiKey, model);
-//
-//        //Assistant assistant = AiServices.create(Assistant.class, zhipuAiStreamingChatModel);
-//        //创建AIService
-//        AiAssistantService assistant = AiServices
-//                .builder(AiAssistantService.class)
-//                .streamingChatModel(zhipuAiStreamingChatModel)
-//                //.chatMemory(chatMemory)
-//                //.chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(10))
-//                .build();
-//        Flux<String> flux = assistant.chat(msgList);
-
-
-
-//        // 提交到大模型获取最终结果
-//        ChatClient chatClient = ChatClient.builder(zhiPuAiChatModel)
-//                .defaultToolCallbacks(tools)
-//                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-//                .build();
-//
-//        Flux<ChatResponse> responseFlux =chatClient.prompt(new Prompt(msgList)).stream().chatResponse();
-//
-//        Flux<String> flux = responseFlux.map(response -> {
-//                   String result =  response.getResult() != null
-//                            && response.getResult().getOutput() != null
-//                            && response.getResult().getOutput().getText() != null
-//                            ? response.getResult().getOutput().getText() : "";
-//                   log.info(result);
-//                    return result;
-//                 }
-//        );
-
-
-        // flux.collectList().subscribe(list -> {
-        //     此处获取的信息和最终返回的信息 是两个结果
-        //     System.out.println(StringUtils.join(list, ""));
-        // });
-
     }
 
 
@@ -300,7 +198,7 @@ public class ZhiPuAiOperator implements AiOperator {
                     neo4jService.processCsvFile(file,projectId,knowledgeId);
                 }
 
-                EmbeddingStore zhiPuAiQdrantVectorStore = qdrantVectorStoreComponet.getZhiPuAiQdrantVectorStore();
+                EmbeddingStore zhiPuAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.ZHIPUAI);
                 //异步执行
                 this.vectorStoreAsyncService.addVectorStore(knowledgeId,zhiPuAiQdrantVectorStore, textSegmentList);
 
@@ -431,16 +329,16 @@ public class ZhiPuAiOperator implements AiOperator {
 
     @Override
     public void remove(ChatProject chatProject,String docId) throws Exception {
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
-        openAiQdrantVectorStore.remove(docId);
+        EmbeddingStore zhiPuAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.ZHIPUAI);
+        zhiPuAiQdrantVectorStore.remove(docId);
 
     }
 
     @Override
     public void removeByknowledgeId(ChatProject chatProject, String knowledgeId) throws Exception {
-        EmbeddingStore openAiQdrantVectorStore = qdrantVectorStoreComponet.getOpenAiQdrantVectorStore();
+        EmbeddingStore zhiPuAiQdrantVectorStore = qdrantVectorStoreComponet.getEmbeddingStoreByAiType(AiTypeEnum.ZHIPUAI);
         //异步执行
-        vectorStoreAsyncService.removeByknowledgeId(openAiQdrantVectorStore,knowledgeId);
+        vectorStoreAsyncService.removeByknowledgeId(zhiPuAiQdrantVectorStore,knowledgeId);
 
     }
 
